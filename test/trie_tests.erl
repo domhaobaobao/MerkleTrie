@@ -118,7 +118,7 @@ migrated_from_stem_test_() -> %TODO clarify what this test is for or remove
         T = {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 
         CFG = cfg:new(1, 9, trie, 2, 12),
-        H = stem:empty_hashes(CFG),
+        {_, _, _, H} = stem:new_empty(CFG),
         S = {stem, T, P, H},
         S2 = stem:serialize(S, CFG),
         S = stem:deserialize(S2, CFG),
