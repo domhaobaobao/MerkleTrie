@@ -111,6 +111,24 @@ key_range_bad_test_() ->
      ]
     }.
 
+migrated_from_stem_test_() -> %TODO clarify what this test is for or remove
+    {foreach,
+        fun() ->
+        P = {6,5,4,3,7,8,9,4,5,3,2,6,7,8,3,4},
+        T = {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+
+        CFG = cfg:new(1, 9, trie, 2, 12),
+        H = stem:empty_hashes(CFG),
+        S = {stem, T, P, H},
+        S2 = stem:serialize(S, CFG),
+        S = stem:deserialize(S2, CFG),
+        stem:hash(S, CFG)
+        end,
+        [
+            {"serialize and deserialize stem", ?_assert(true)}
+        ]
+    }.
+
 cleanup_alive_sup(Sup) when is_pid(Sup) ->
     SupMonRef = erlang:monitor(process, Sup),
     unlink(Sup),
