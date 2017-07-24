@@ -1,5 +1,5 @@
 -module(leaf).
--export([new/4, key/1, value/1, meta/1, path/2, path_maker/2, hash/2, put/2, get/2, serialize/2, deserialize/2]).
+-export([new/4, key/1, value/1, meta/1, path/2, path_maker/2, hash/2, serialize/2, deserialize/2]).
 -export_type([leaf/0,key/0,value/0,meta/0,leaf_p/0,path/0]).
 -record(leaf, { key :: key()
 	      , value :: value()
@@ -57,14 +57,6 @@ path_maker(K, CFG) ->
 
 value(L) -> L#leaf.value.
 meta(X) -> X#leaf.meta.
--spec put(leaf(), cfg:cfg()) -> leaf_p().
-put(Leaf, CFG) ->
-    dump:put(serialize(Leaf, CFG), 
-	     ids:leaf(CFG)).
--spec get(leaf_p(), cfg:cfg()) -> leaf().
-get(Pointer, CFG) ->
-    L = dump:get(Pointer, ids:leaf(CFG)),
-    deserialize(L, CFG).
 -spec hash(leaf(), cfg:cfg()) -> stem:hash().
 hash(L, CFG) ->   
     P = cfg:path(CFG) * 8,

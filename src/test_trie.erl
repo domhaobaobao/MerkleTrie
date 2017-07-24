@@ -29,10 +29,10 @@ test(1, CFG) ->
     Loc1 = dump:put(Lc, ids:leaf(CFG)),
     LH = leaf:hash(LeafAB, CFG),
     S1 = stem:new(Nib2, 2, Loc1, LH, CFG),
-    Loc2 = stem:put(S1, CFG),
+    Loc2 = store:put_stem(S1, CFG),
     SH = stem:hash(S1, CFG),
     S = stem:new(Nib1, 1, Loc2, SH, CFG),
-    Loc3 = stem:put(S, CFG),
+    Loc3 = store:put_stem(S, CFG),
     %Starts with a 2-level tree with a single leaf at the end.
     RootHash = stem:hash(S, CFG),
     X = {RootHash, LeafAB, [stem:hashes(S1), stem:hashes(S)]},
@@ -53,10 +53,10 @@ test(1, CFG) ->
     Loc4 = dump:put(L2c, ids:leaf(CFG)),
     LH2 = leaf:hash(Leafbb, CFG),
     S2 = stem:new(Nib4, 2, Loc4, LH2, CFG),
-    Loc5 = stem:put(S2, CFG),
+    Loc5 = store:put_stem(S2, CFG),
     SH2 = stem:hash(S2, CFG),
     S3 = stem:add(S, Nib3, 1, Loc5, SH2),
-    Loc6 = stem:put(S3, CFG),
+    Loc6 = store:put_stem(S3, CFG),
     RootHash2 = stem:hash(S3, CFG),
     Proof2 = [stem:hashes(S2), stem:hashes(S3)],
     X2 = {RootHash2, Leafbb, Proof2},
@@ -237,7 +237,7 @@ test(8, _CFG) ->
     success;
     
 test(9, CFG) ->
-    S = stem:get(0, CFG),
+    S = store:get_stem(0, CFG),
     V1 = <<2,3>>,
     Root = 0,
     Key = 5,
@@ -248,7 +248,7 @@ test(9, CFG) ->
     V1 = leaf:value(Leaf),
     Root3 = trie:delete(Key, Root2, trie01),
     {RH, empty, _Proof} = trie:get(Key, Root3, trie01),
-    S = stem:get(0, CFG),
+    S = store:get_stem(0, CFG),
     success;
     
 test(10, _CFG) ->

@@ -17,7 +17,7 @@ garbage(KeeperRoots, CFG) ->
 
 dump_bits(T, CFG) -> [
     begin
-        Leaf = leaf:get(K, CFG),
+        Leaf = store:get_leaf(K, CFG),
         %TODO BEGIN verify if this is actually needed
         Path = list_to_bitstring(leaf:path(Leaf, CFG)),
         NN = cfg:path(CFG)*8,
@@ -30,7 +30,7 @@ dump_bits(T, CFG) -> [
 keepers_backwards(X, CFG) -> keepers_backwards(X, {[],[]}, CFG).
 keepers_backwards([], X, _) -> X;
 keepers_backwards([{Path, Root}|Leaves], {KS, KL}, CFG) -> 
-    S = stem:get(Root, CFG),
+    S = store:get_stem(Root, CFG),
     {Stems, Leaf} = kb2(Path, S, [Root], CFG),
     keepers_backwards(Leaves, 
 		      {append_no_repeats(KS, Stems), 
@@ -41,14 +41,14 @@ kb2([<<N:4>> | Path], Stem, Keepers, CFG) ->
     PN = stem:pointer(N+1, Stem),
     case NextType of
 	1 -> %another stem
-	    Next = stem:get(PN, CFG),
+	    Next = store:get_stem(PN, CFG),
 	    kb2(Path, Next, append_no_repeats([PN], Keepers), CFG);
 	2 -> %leaf
 	    {Keepers, PN}
     end.
 keepers([], _) -> {[], []};
 keepers([R|Roots], CFG) -> %returns {keeperstems, keeperleaves}
-    case stem:get(R, CFG) of
+    case store:get_stem(R, CFG) of
 	error -> 
 	    {A, B} = keepers(Roots, CFG),
 	    {[R|A],B};

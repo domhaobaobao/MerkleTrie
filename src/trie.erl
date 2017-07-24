@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -export([start_link/1,code_change/3,handle_call/3,handle_cast/2,handle_info/2,init/1,terminate/2, root_hash/2,cfg/1,get/3,put/5,delete/3,garbage/2,garbage_leaves/2,get_all/2]).
 init(CFG) ->
-    0 = stem:put(stem:new_empty(CFG), CFG),
+    0 = store:put_stem(stem:new_empty(CFG), CFG),
     {ok, CFG}.
 start_link(CFG) -> %keylength, or M is the size outputed by hash:doit(_). 
     gen_server:start_link({global, ids:main(CFG)}, ?MODULE, CFG, []).
@@ -43,7 +43,7 @@ handle_call({garbage_leaves, KLS}, _From, CFG) ->
     garbage:garbage_leaves(KLS, CFG),
     {reply, ok, CFG};
 handle_call({root_hash, RootPointer}, _From, CFG) ->
-    S = stem:get(RootPointer, CFG),
+    S = store:get_stem(RootPointer, CFG),
     H = stem:hash(S, CFG),
     {reply, H, CFG};
 handle_call(cfg, _From, CFG) ->
@@ -71,7 +71,7 @@ garbage_leaves(KLS, ID) ->
 
 
 get_all_internal(Root, CFG) ->
-    S = stem:get(Root, CFG),
+    S = store:get_stem(Root, CFG),
     P = tuple_to_list(stem:pointers(S)),
     T = tuple_to_list(stem:types(S)),
     get_all_internal2(P, T, CFG).
@@ -83,6 +83,6 @@ get_all_internal2([A|AT], [T|TT], CFG) ->
 	    1 -> %another stem
 		get_all_internal(A, CFG);
 	    2 -> %a leaf.
-		[leaf:get(A, CFG)]
+		[store:get_leaf(A, CFG)]
 	end,
     B++get_all_internal2(AT, TT, CFG).
