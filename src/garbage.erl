@@ -60,7 +60,7 @@ keepers([R|Roots], CFG) -> %returns {keeperstems, keeperleaves}
     end.
 append_no_repeats([],X) -> X;
 append_no_repeats([A|Ta],X) -> 
-    Bool2 = in_list(A, X),
+    Bool2 = lists:member(A, X),
     if
 	Bool2 -> append_no_repeats(Ta, X);
 	true -> append_no_repeats(Ta, [A|X])
@@ -78,14 +78,12 @@ stem_keepers(S, N, Stems, Leaves, MoreRoots) ->
 	    2 -> {Stems, [P|Leaves], MoreRoots}
 	end,
     stem_keepers(S, N+1, NewStems, NewLeaves, NewMoreRoots).
-in_list(X, [X|_]) -> true;
-in_list(_, []) -> false;
-in_list(X, [_|Z]) -> in_list(X, Z).
+
 delete_stuff(N, Keepers, ID) ->
     S = dump:highest(ID) div dump:word(ID),
     delete_stuff(S, N, Keepers, ID).
 delete_stuff(S, N, Keepers, Id) ->
-    Bool = in_list(N, Keepers),
+    Bool = lists:member(N, Keepers),
     if
 	N>=S -> ok;
 	Bool ->

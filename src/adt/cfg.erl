@@ -19,12 +19,17 @@ new(P, V, ID, M, H) -> #cfg{path = P, value = V,
 			    hash_size = H }.
 -spec path(cfg()) -> path().
 path(X) -> X#cfg.path. %how many bytes to store the path (defaul is 5)
+
 -spec value(cfg()) -> value().
 value(X) -> X#cfg.value.%how many bytes to store the value.
+
 -spec meta(cfg()) -> meta().
 meta(X) -> X#cfg.meta. %how many bytes to store the meta data that isn't hashed into the merkle tree.
+
 leaf(X) -> path(X) + value(X) + meta(X).
+
 -spec id(cfg()) -> id().
 id(X) -> X#cfg.id.
+
 -spec hash_size(cfg()) -> hash_size().
 hash_size(X) -> X#cfg.hash_size.
