@@ -14,8 +14,7 @@ proof(RootHash, L, Proof, CFG) ->
     end.
 
 -spec proof_internal(leaf:path(), leaf:leaf(), get:proof(), cfg:cfg()) -> boolean().
-proof_internal([<<N:4>> | _], Leaf, P, CFG) when length(P) == 1->
-    P1 = hd(P),
+proof_internal([<<N:4>> | _], Leaf, [P1], CFG) ->
     Hash = element(N+1, P1),
     Hash == leaf:hash(Leaf, CFG);
 proof_internal([<<N:4>>| Path ], Leaf, [P1, P2 | Proof], CFG) ->
