@@ -1,7 +1,7 @@
 -module(trie).
 -behaviour(gen_server).
 -export([start_link/1,code_change/3,handle_call/3,handle_cast/2,handle_info/2,init/1,terminate/2, root_hash/2,cfg/1,get/3,put/5,delete/3,garbage/2,garbage_leaves/2,get_all/2]).
--record(s,{
+-record(state,{
     sup_pid,
     leaf_id, leaf_pid,
     stem_id, stem_pid,
@@ -15,7 +15,7 @@ init(Args) ->
     Siblings = supervisor:which_children(SupPID),
     {_,LeafPID,_,_} = proplists:lookup(LeafID, Siblings),
     {_,StemPID,_,_} = proplists:lookup(StemID, Siblings),
-    {ok, #s{
+    {ok, #state{
         sup_pid = SupPID,
         leaf_id = LeafID, leaf_pid = LeafPID,
         stem_id = StemID, stem_pid = StemPID,
@@ -27,22 +27,22 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 terminate(_, _) -> io:format("died!"), ok.
 handle_info(_, X) -> {noreply, X}.
 
-handle_cast({garbage, Keepers}, State = #s{cfg = CFG}) ->
+handle_cast({garbage, Keepers}, State = #state{cfg = CFG}) ->
     garbage:garbage(Keepers, CFG),
     {noreply, State};
-handle_cast({garbage_leaves, KLS}, State = #s{cfg = CFG}) ->
+handle_cast({garbage_leaves, KLS}, State = #state{cfg = CFG}) ->
     garbage:garbage_leaves(KLS, CFG),
     {noreply, State};
 handle_cast(_, X) -> {noreply, X}.
 
-handle_call({delete, Key, Root}, _From, State = #s{cfg = CFG}) ->
+handle_call({delete, Key, Root}, _From, State = #state{cfg = CFG}) ->
     NewRoot = delete:delete(Key, Root, CFG),
     {reply, NewRoot, State};
-handle_call({put, Key, Value, Meta, Root}, _From, State = #s{cfg = CFG}) ->
+handle_call({put, Key, Value, Meta, Root}, _From, State = #state{cfg = CFG}) ->
     Leaf = leaf:new(Key, Value, Meta, CFG),
     {_, NewRoot, _} = store:store(Leaf, Root, CFG),
     {reply, NewRoot, State};
-handle_call({get, Key, RootPointer}, _From, State = #s{cfg = CFG}) ->
+handle_call({get, Key, RootPointer}, _From, State = #state{cfg = CFG}) ->
     P = leaf:path_maker(Key, CFG),
     {RootHash, L, Proof} = get:get(P, RootPointer, CFG),
     L2 = if
@@ -55,17 +55,17 @@ handle_call({get, Key, RootPointer}, _From, State = #s{cfg = CFG}) ->
 		 end
 	 end,
     {reply, {RootHash, L2, Proof}, State};
-handle_call({get_all, Root}, _From, State = #s{cfg = CFG}) ->
+handle_call({get_all, Root}, _From, State = #state{cfg = CFG}) ->
     X = get_all_internal(Root, CFG),
     {reply, X, State};
-handle_call({garbage_leaves, KLS}, _From, State = #s{cfg = CFG}) ->
+handle_call({garbage_leaves, KLS}, _From, State = #state{cfg = CFG}) ->
     garbage:garbage_leaves(KLS, CFG),
     {reply, ok, State};
-handle_call({root_hash, RootPointer}, _From, State = #s{cfg = CFG}) ->
+handle_call({root_hash, RootPointer}, _From, State = #state{cfg = CFG}) ->
     S = store:get_stem(RootPointer, CFG),
     H = stem:hash(S, CFG),
     {reply, H, State};
-handle_call(cfg, _From, State = #s{cfg = CFG}) ->
+handle_call(cfg, _From, State = #state{cfg = CFG}) ->
     {reply, CFG, State}.
 
 cfg(ID) when is_atom(ID) ->
