@@ -7,7 +7,7 @@
 
 init(Args) ->
     CFG = Args,
-    0 = store:put_stem(stem:new_empty(CFG), CFG),
+    0 = store:put_stem(stem:empty(CFG), CFG),
     {ok, #state{cfg = CFG}}.
 start_link(Args) -> %keylength, or M is the size outputed by hash:doit(_).
     CFG = Args,

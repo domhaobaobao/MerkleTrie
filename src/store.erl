@@ -26,14 +26,13 @@ combine_stems(N, A, B) ->
     P = stem:pointer(N, A),
     H = element(N, stem:hashes(A)),
     stem:add(B, N-1, T, P, H).
-    
+
 proof2branch([],_,_,_, _, _) -> [];
-proof2branch([H|T], Type, Pointer, Hash, Path, CFG) -> 
-    [<<Nibble:4>> | NewPath] = Path,
-    S = stem:recover(Nibble, Type, Pointer, Hash, H),
+proof2branch([Hashes | MoreProof], Type, Pointer, Hash, [<<Nibble:4>> | MorePath], CFG) ->
+    S = stem:recover(Nibble, Type, Pointer, Hash, Hashes),
     NewPointer = store:put_stem(S, CFG),
     NewHash = stem:hash(S, CFG),
-    [S|proof2branch(T, 1, NewPointer, NewHash, NewPath, CFG)].
+    [S | proof2branch(MoreProof, 1, NewPointer, NewHash, MorePath, CFG)].
     
     
 -spec store(leaf:leaf(), stem:stem_p(), cfg:cfg()) ->
@@ -48,13 +47,13 @@ store(Leaf, Root, CFG) ->
     B = case get_branch(P, 0, Root, [], CFG) of
 	{Leaf2, LP2, Branch} ->%split leaf, add stem(s)
 	    %need to add 1 or more stems.
-		{A, N2} = path_match(P, leaf:path(Leaf2, CFG), 0),
-		[H|T] = empty_stems(A-length(Branch)+1, CFG),
-		LH2 = leaf:hash(Leaf2, CFG),
-		H2 = stem:add(H, N2, 2, LP2, LH2),
-		[H2|T]++Branch;
-	    Branch -> %overwrite
-		Branch
+            {A, N2} = path_match(P, leaf:path(Leaf2, CFG), 0),
+            LH2 = leaf:hash(Leaf2, CFG),
+            Stem = stem:new(N2, 2, LP2, LH2, CFG),
+            EmptyStems = [stem:empty(CFG) || _ <- lists:seq(1,A-length(Branch))],
+            [Stem | EmptyStems] ++ Branch;
+        Branch -> %overwrite
+            Branch
     end,
     put_branch(B, P, 2, LPointer, LH, CFG).
 -type path_nibble_index() :: path_nibble_index(cfg:path()).
@@ -120,8 +119,6 @@ path_match([<<A:4>> | P1], [<<B:4>> | P2], N) -> %returns {convergence_length, n
 	A == B -> path_match(P1, P2, N+1);
 	true -> {N, B}
     end.
-empty_stems(0, _) -> [];
-empty_stems(N, CFG) -> [stem:new_empty(CFG)|empty_stems(N-1, CFG)].
 
 -spec put_leaf(leaf:leaf(), cfg:cfg()) -> leaf:leaf_p().
 put_leaf(Leaf, CFG) ->

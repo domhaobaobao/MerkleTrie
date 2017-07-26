@@ -1,7 +1,7 @@
 %The purpose of this file is to define stems as a data structure in ram, and give some simple functions to operate on them.
 
 -module(stem).
--export([type/2,hash/2,pointers/1,types/1,hashes/1,pointer/2,new/5,add/5,new_empty/1,recover/5, serialize/2, deserialize/2]).
+-export([type/2,hash/2,pointers/1,types/1,hashes/1,pointer/2,new/5,add/5,empty/1,recover/5, serialize/2, deserialize/2]).
 -export_type([stem/0,types/0,empty_t/0,stem_t/0,leaf_t/0,pointers/0,empty_p/0,hashes/0,hash/0,empty_hash/0,stem_p/0]).
 -record(stem, { types = empty_tuple() :: types()
 	      , pointers = empty_tuple() :: pointers()
@@ -48,15 +48,15 @@ add(S, N, T, P, H) ->
     P2 = setelement(M, Po, P),
     H2 = setelement(M, Ha, H),
     #stem{types = T2, pointers = P2, hashes = H2}.
--spec new_empty(cfg:cfg()) -> stem().
-new_empty(CFG) -> #stem{hashes = empty_hashes(CFG)}.
+-spec empty(cfg:cfg()) -> stem().
+empty(CFG) -> #stem{hashes = empty_hashes(CFG)}.
 recover(M, T, P, H, Hashes) ->
     S = #stem{hashes = Hashes},
     add(S, M, T, P, H).
 new(M, T, P, H, CFG) ->
     %N is the nibble being pointed to.
     %T is the type, P is the pointer, H is the Hash
-    S = new_empty(CFG),
+    S = empty(CFG),
     add(S, M, T, P, H).
 -spec pointers(stem()) -> pointers().
 pointers(R) -> R#stem.pointers.
