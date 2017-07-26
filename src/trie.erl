@@ -1,29 +1,48 @@
 -module(trie).
 -behaviour(gen_server).
 -export([start_link/1,code_change/3,handle_call/3,handle_cast/2,handle_info/2,init/1,terminate/2, root_hash/2,cfg/1,get/3,put/5,delete/3,garbage/2,garbage_leaves/2,get_all/2]).
-init(CFG) ->
+-record(s,{
+    sup_pid,
+    leaf_id, leaf_pid,
+    stem_id, stem_pid,
+    cfg
+}).
+init(Args) ->
+    {SupPID, CFG} = Args,
     0 = store:put_stem(stem:new_empty(CFG), CFG),
-    {ok, CFG}.
-start_link(CFG) -> %keylength, or M is the size outputed by hash:doit(_). 
-    gen_server:start_link({global, ids:main(CFG)}, ?MODULE, CFG, []).
+    LeafID = ids:leaf(CFG),
+    StemID = ids:stem(CFG),
+    Siblings = supervisor:which_children(SupPID),
+    {_,LeafPID,_,_} = proplists:lookup(LeafID, Siblings),
+    {_,StemPID,_,_} = proplists:lookup(StemID, Siblings),
+    {ok, #s{
+        sup_pid = SupPID,
+        leaf_id = LeafID, leaf_pid = LeafPID,
+        stem_id = StemID, stem_pid = StemPID,
+        cfg = CFG}}.
+start_link(Args) -> %keylength, or M is the size outputed by hash:doit(_).
+    gen_server:start_link(?MODULE, Args, []).
+
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 terminate(_, _) -> io:format("died!"), ok.
 handle_info(_, X) -> {noreply, X}.
-handle_cast({garbage, Keepers}, CFG) -> 
+
+handle_cast({garbage, Keepers}, State = #s{cfg = CFG}) ->
     garbage:garbage(Keepers, CFG),
-    {noreply, CFG};
-handle_cast({garbage_leaves, KLS}, CFG) -> 
+    {noreply, State};
+handle_cast({garbage_leaves, KLS}, State = #s{cfg = CFG}) ->
     garbage:garbage_leaves(KLS, CFG),
-    {noreply, CFG};
+    {noreply, State};
 handle_cast(_, X) -> {noreply, X}.
-handle_call({delete, Key, Root}, _From, CFG) ->
+
+handle_call({delete, Key, Root}, _From, State = #s{cfg = CFG}) ->
     NewRoot = delete:delete(Key, Root, CFG),
-    {reply, NewRoot, CFG};
-handle_call({put, Key, Value, Meta, Root}, _From, CFG) -> 
+    {reply, NewRoot, State};
+handle_call({put, Key, Value, Meta, Root}, _From, State = #s{cfg = CFG}) ->
     Leaf = leaf:new(Key, Value, Meta, CFG),
     {_, NewRoot, _} = store:store(Leaf, Root, CFG),
-    {reply, NewRoot, CFG};
-handle_call({get, Key, RootPointer}, _From, CFG) -> 
+    {reply, NewRoot, State};
+handle_call({get, Key, RootPointer}, _From, State = #s{cfg = CFG}) ->
     P = leaf:path_maker(Key, CFG),
     {RootHash, L, Proof} = get:get(P, RootPointer, CFG),
     L2 = if
@@ -35,19 +54,20 @@ handle_call({get, Key, RootPointer}, _From, CFG) ->
 		     true -> empty
 		 end
 	 end,
-    {reply, {RootHash, L2, Proof}, CFG};
-handle_call({get_all, Root}, _From, CFG) ->
+    {reply, {RootHash, L2, Proof}, State};
+handle_call({get_all, Root}, _From, State = #s{cfg = CFG}) ->
     X = get_all_internal(Root, CFG),
-    {reply, X, CFG};
-handle_call({garbage_leaves, KLS}, _From, CFG) -> 
+    {reply, X, State};
+handle_call({garbage_leaves, KLS}, _From, State = #s{cfg = CFG}) ->
     garbage:garbage_leaves(KLS, CFG),
-    {reply, ok, CFG};
-handle_call({root_hash, RootPointer}, _From, CFG) ->
+    {reply, ok, State};
+handle_call({root_hash, RootPointer}, _From, State = #s{cfg = CFG}) ->
     S = store:get_stem(RootPointer, CFG),
     H = stem:hash(S, CFG),
-    {reply, H, CFG};
-handle_call(cfg, _From, CFG) ->
-    {reply, CFG, CFG}.
+    {reply, H, State};
+handle_call(cfg, _From, State = #s{cfg = CFG}) ->
+    {reply, CFG, State}.
+
 cfg(ID) when is_atom(ID) ->
     gen_server:call({global, ids:main_id(ID)}, cfg).
 root_hash(ID, RootPointer) when is_atom(ID) ->
