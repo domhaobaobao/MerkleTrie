@@ -1,5 +1,5 @@
 -module(store).
--export([store/3, store/5, get_branch/5, store_branch/6, get_leaf/2, put_leaf/2, get_stem/2, put_stem/2]).
+-export([store/3, store/5, get_branch/5, put_branch/6, get_leaf/2, put_leaf/2, get_stem/2, put_stem/2]).
 -export_type([branch/0, nonempty_branch/0]).
 
 -type branch() :: [stem:stem()]. % first element is most distant from root i.e. closest to leaf (if any)
@@ -16,7 +16,8 @@ store(Leaf, Hash, Proof, Root, CFG) -> %this restores information to the merkle 
     Branch = proof2branch(Proof, 2, LPointer, LH, Path, CFG),
     Branch2 = get_branch(Path, 0, Root, [], CFG),
     Branch3 = combine_branches(Path, Branch, Branch2),
-    store_branch(Branch3, Path, 2, LPointer, LH, CFG).
+    put_branch(Branch3, Path, 2, LPointer, LH, CFG).
+
 combine_branches(_, X, []) -> X;
 combine_branches([<<N:4>> | Path], [Sa|A], [Sb|B]) ->%The second one has many pointers we care about. The first one has 1 leaf-pointer we care about.
     [combine_stems(N+1, Sa, Sb) | combine_branches(Path, A, B)].
@@ -55,7 +56,7 @@ store(Leaf, Root, CFG) ->
 	    Branch -> %overwrite
 		Branch
     end,
-    store_branch(B, P, 2, LPointer, LH, CFG).
+    put_branch(B, P, 2, LPointer, LH, CFG).
 -type path_nibble_index() :: path_nibble_index(cfg:path()).
 -type path_nibble_index(_CfgPathSizeBytes) :: non_neg_integer(). % 0..((cfg:path() * 2) - 1)
 -spec get_branch(Path::leaf:path(), StartInPath::path_nibble_index(),
@@ -84,7 +85,7 @@ get_branch(Path, N, Parent, Trail, CFG) ->
 		    {Leaf, Pointer, RP}
 	    end
     end.
--spec store_branch(nonempty_branch(), leaf:path(),
+-spec put_branch(nonempty_branch(), leaf:path(),
 		   stem:leaf_t(), leaf:leaf_p(), stem:hash(),
 		   cfg:cfg()) -> Result when
       Result :: {RootHash::stem:hash(), Root::stem:stem_p(), get:proof()};
@@ -92,25 +93,25 @@ get_branch(Path, N, Parent, Trail, CFG) ->
 		   stem:empty_t(), stem:empty_p(), stem:hash(),
 		   cfg:cfg()) -> Result when
       Result :: {RootHash::stem:hash(), Root::stem:stem_p(), get:proof()}.
-store_branch(Branch = [_|_], Path, Type, Pointer, Hash, CFG) when Type =:= 0;
+put_branch(Branch = [_|_], Path, Type, Pointer, Hash, CFG) when Type =:= 0;
 								  Type =:= 2 ->
-    store_branch_internal(Branch, Path, Type, Pointer, Hash, CFG).
-store_branch_internal([], Path, _, Pointer, _, CFG) ->
+    put_branch_internal(Branch, Path, Type, Pointer, Hash, CFG).
+put_branch_internal([], Path, _, Pointer, _, CFG) ->
     %Instead of getting the thing, we can build it up while doing store.
     {Hash, _, Proof} = get:get(Path, Pointer, CFG),
     {Hash, Pointer, Proof};
 
     %case get:get(Path, Pointer, CFG) of
 	%{Hash, _, Proof} -> {Hash, Pointer, Proof};
-	%empty -> store_branch_internal([], Path, 0, Pointer, 0, CFG)
+	%empty -> put_branch_internal([], Path, 0, Pointer, 0, CFG)
     %end;
-store_branch_internal([B|Branch], Path, Type, Pointer, Hash, CFG) ->
+put_branch_internal([B|Branch], Path, Type, Pointer, Hash, CFG) ->
     S = length(Branch),
     <<A:4>> = lists:nth(S+1,Path),  %% TODO maybe this can be turned into hd (head)
     S1 = stem:add(B, A, Type, Pointer, Hash),
     Loc = store:put_stem(S1, CFG),
     SH = stem:hash(S1, CFG),
-    store_branch_internal(Branch, Path, 1, Loc, SH, CFG).
+    put_branch_internal(Branch, Path, 1, Loc, SH, CFG).
 %add(L) -> add(L, 0).
 %add([], X) -> X;
 %add([H|T], X) -> add(T, H+X).

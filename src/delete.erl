@@ -9,6 +9,6 @@ delete(ID, Root, CFG) ->
     X = cfg:hash_size(CFG)*8,
     %X = hash:hash_depth()*8,
     EmptyHash = <<0:X>>,
-    {_, NewRoot, _} = store:store_branch(Branch, Path, 0, 0, EmptyHash, CFG),
+    {_, NewRoot, _} = store:put_branch(Branch, Path, 0, 0, EmptyHash, CFG),
     NewRoot.
 
