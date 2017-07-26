@@ -13,9 +13,13 @@ start_link(Args) -> %keylength, or M is the size outputed by hash:doit(_).
     CFG = Args,
     gen_server:start_link({local, ids:main(CFG)}, ?MODULE, Args, []).
 
-code_change(_OldVsn, State, _Extra) -> {ok, State}.
+code_change(_OldVsn, State, _Extra) ->
+    %TODO log here
+    {ok, State}.
 terminate(_, _) -> io:format("died!"), ok.
-handle_info(_, X) -> {noreply, X}.
+handle_info(_, X) ->
+    %TODO log here
+    {noreply, X}.
 
 handle_cast({garbage, Keepers}, State = #state{cfg = CFG}) ->
     garbage:garbage(Keepers, CFG),
@@ -23,7 +27,9 @@ handle_cast({garbage, Keepers}, State = #state{cfg = CFG}) ->
 handle_cast({garbage_leaves, KLS}, State = #state{cfg = CFG}) ->
     garbage:garbage_leaves(KLS, CFG),
     {noreply, State};
-handle_cast(_, X) -> {noreply, X}.
+handle_cast(_, X) ->
+    %TODO log here
+    {noreply, X}.
 
 handle_call({delete, Key, Root}, _From, State = #state{cfg = CFG}) ->
     NewRoot = delete:delete(Key, Root, CFG),
@@ -56,7 +62,11 @@ handle_call({root_hash, RootPointer}, _From, State = #state{cfg = CFG}) ->
     H = stem:hash(S, CFG),
     {reply, H, State};
 handle_call(cfg, _From, State = #state{cfg = CFG}) ->
-    {reply, CFG, State}.
+    {reply, CFG, State};
+
+handle_call(_, _From, State) ->
+    %TODO log here
+    {reply, ok, State}.
 
 cfg(ID) when is_atom(ID) ->
     gen_server:call(ids:main_id(ID), cfg).
