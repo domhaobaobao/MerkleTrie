@@ -114,16 +114,10 @@ empty_hashes(CFG) ->
 hash(S, CFG) when is_binary(S) ->
     hash(deserialize(S, CFG), CFG);
 hash(S, CFG) when is_tuple(S) and (size(S) == 16)->    
-    hash2(1, S, <<>>, CFG);
-hash(S, CFG) ->    
-    H = S#stem.hashes,
-    hash2(1, H, <<>>, CFG).
-hash2(17, _, X, CFG) -> 
+    hash2(tuple_to_list(S), CFG);
+hash(S, CFG) ->
+    hash2(tuple_to_list(S#stem.hashes), CFG).
+hash2(Hashes, CFG) ->
     HS = cfg:hash_size(CFG),
-    hash:doit(X, HS);
-hash2(N, H, X, CFG) ->
-    A = element(N, H),
-    HS = cfg:hash_size(CFG),
-    %12 = size(A),
-    HS = size(A),
-    hash2(N+1, H, <<A/binary, X/binary>>, CFG).
+    true = lists:all(fun(X)-> HS == size(X) end,Hashes), % can we remove this assertion?
+    hash:doit(list_to_bitstring(Hashes), HS).
