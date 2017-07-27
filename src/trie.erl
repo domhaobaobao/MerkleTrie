@@ -34,10 +34,12 @@ handle_cast(_, X) ->
 handle_call({delete, Key, Root}, _From, State = #state{cfg = CFG}) ->
     NewRoot = delete:delete(Key, Root, CFG),
     {reply, NewRoot, State};
-handle_call({put, Key, Value, Meta, Root}, _From, State = #state{cfg = CFG}) ->
-    Leaf = leaf:new(Key, Value, Meta, CFG),
-    {_, NewRoot, _} = store:store(Leaf, Root, CFG),
-    {reply, NewRoot, State};
+handle_call({put, KVMs, Root}, _From, State = #state{cfg = CFG}) ->
+    NewRoots =[
+        NewRoot ||
+        {_, NewRoot, _} <- store:store(KVMs, Root, CFG)
+    ],
+    {reply, NewRoots, State};
 handle_call({get, Key, RootPointer}, _From, State = #state{cfg = CFG}) ->
     P = leaf:path_maker(Key, CFG),
     {RootHash, L, Proof} = get:get(P, RootPointer, CFG),
@@ -75,7 +77,12 @@ root_hash(ID, RootPointer) when is_atom(ID) ->
 -spec put(leaf:key(), leaf:value(), leaf:meta(), stem:stem_p(), atom()) ->
 		 stem:stem_p().
 put(Key, Value, Meta, Root, ID) ->
-    gen_server:call(ids:main_id(ID), {put, Key, Value, Meta, Root}).
+    [NewRoot] = put([{Key, Value, Meta}], Root, ID),
+    NewRoot.
+
+put(KVMs, Root, ID) ->
+    gen_server:call(ids:main_id(ID), {put, KVMs, Root}).
+
 -spec get(leaf:key(), stem:stem_p(), atom()) ->
 		 {stem:hash(), empty | leaf:leaf(), get:proof()}.
 get(Key, Root, ID) -> gen_server:call(ids:main_id(ID), {get, Key, Root}).

@@ -69,8 +69,8 @@ test(1, CFG) ->
     L3b = <<255,255>>,
     <<L3abc:40>> = list_to_bitstring(L3flip),
     Leafcc = leaf:new(L3abc, L3b, Meta, CFG), 
-    {Root7, Loc7, _} = store:store(Leafcc, Loc6, CFG),
-    {Root7, _, _} = store:store(Leafcc, Loc6, CFG),
+    [{Root7, Loc7, _}] = store:store(tuples_from(Leafcc), Loc6, CFG),
+    [{Root7, _, _}] = store:store(tuples_from(Leafcc), Loc6, CFG),
     trie:garbage([Loc7], ?ID),
     trie:cfg(?ID),
     ReplaceStem = <<0:(8*(dump:word(ids:stem(CFG))))>>,
@@ -84,7 +84,7 @@ test(2, CFG) ->
     %L = <<0:4,0:4,0:4,0:4,0,0,0>>,
     La = <<255, 0>>,
     Leaf = leaf:new(1, La, 0, CFG),
-    store:store(Leaf, Loc, CFG);
+    store:store(tuples_from(Leaf), Loc, CFG);
 
 test(3, CFG) -> 
     Loc = 0,
@@ -145,10 +145,10 @@ test(5, CFG) ->
     Leaf2 = leaf:new(L2, V2, Meta, CFG),
     Leaf3 = leaf:new(L3, V3, Meta, CFG),
     Leaf4 = leaf:new(L3, V1, Meta, CFG),
-    {_, Root1, _} = store:store(Leaf1, Root0, CFG),
-    {Hash, Root2, Proof2} = store:store(Leaf2, Root1, CFG),
-    {Hash, Root3, _} = store:store(Leaf2, Root2, CFG),
-    {Hash2, Root4, Proof4} = store:store(Leaf3, Root3, CFG),
+    [{_, Root1, _}] = store:store(tuples_from(Leaf1), Root0, CFG),
+    [{Hash, Root2, Proof2}] = store:store(tuples_from(Leaf2), Root1, CFG),
+    [{Hash, Root3, _}] = store:store(tuples_from(Leaf2), Root2, CFG),
+    [{Hash2, Root4, Proof4}] = store:store(tuples_from(Leaf3), Root3, CFG),
     Lpath1 = leaf:path(Leaf1, CFG),
     X = [{Lpath1, Root4}],
     io:fwrite("garbage leaves\n"),
@@ -163,7 +163,7 @@ test(5, CFG) ->
     {Hash4, Root5, Proof5} = store:store(Leaf3, Hash2, Proof4, Root4, CFG),
     %we need to be able to add proofs for things into an empty database.
     true = verify:proof(Hash4, Leaf3, Proof5, CFG),
-    {Hash5, _Root6, Proof6} = store:store(Leaf4, Root5, CFG), %overwrite the same spot.
+    [{Hash5, _Root6, Proof6}] = store:store(tuples_from(Leaf4), Root5, CFG), %overwrite the same spot.
     true = verify:proof(Hash5, Leaf4, Proof6, CFG),
     ok;
 
@@ -180,20 +180,20 @@ test(6, CFG) ->
     <<L2:40>> = <<0,16,0,0,0>>,
     Meta = 0,
     Leafa = leaf:new(L1, V1, Meta, CFG),
-    {_, Root1, _} = store:store(Leafa, Root0, CFG),
+    [{_, Root1, _}] = store:store(tuples_from(Leafa), Root0, CFG),
     {Hash0bb, Leafa, Proofa} = get:get(leaf:path(Leafa, CFG), Root1, CFG),
     true = verify:proof(Hash0bb, Leafa, Proofa, CFG),
     Leafb = leaf:new(L2, V2, Meta, CFG),
-    {_, Root2, _} = store:store(Leafb, Root1, CFG),
+    [{_, Root2, _}] = store:store(tuples_from(Leafb), Root1, CFG),
     {Hash0, Leafb, Proofb} = get:get(leaf:path(Leafb, CFG), Root2, CFG),
     true = verify:proof(Hash0, Leafb, Proofb, CFG),
     Leafc = leaf:new(L2, V3, Meta, CFG),
-    {Hash, Root3, _} = store:store(Leafc, Root2, CFG),
-    {Hasha, _, _} = store:store(Leafc, Root1, CFG),
+    [{Hash, Root3, _}] = store:store(tuples_from(Leafc), Root2, CFG),
+    [{Hasha, _, _}] = store:store(tuples_from(Leafc), Root1, CFG),
     Hasha = Hash,
     {Hash, Leafc, Proofc} = get:get(leaf:path(Leafc, CFG), Root3, CFG),
     true = verify:proof(Hash, Leafc, Proofc, CFG),
-    {Hash, Root6, Proofc} = store:store(Leafc, Root1, CFG),
+    [{Hash, Root6, Proofc}] = store:store(tuples_from(Leafc), Root1, CFG),
     GL = [{leaf:path(Leafa, CFG), Root6}],
     {_, Leafa, _} = get:get(leaf:path(Leafa, CFG), Root6, CFG),
     garbage:garbage_leaves(GL, CFG),
@@ -216,10 +216,10 @@ test(7, CFG) ->
     Meta = 0,
     Leaf1 = leaf:new(L1, V1, Meta, CFG),
     Leaf2 = leaf:new(L2, V2, Meta, CFG),
-    {_, Root1, _} = store:store(Leaf1, Root0, CFG),
+    [{_, Root1, _}] = store:store(tuples_from(Leaf1), Root0, CFG),
     {Hash0bb, Leaf1, B0bb} = get:get(leaf:path(Leaf1, CFG), Root1, CFG),
     true = verify:proof(Hash0bb, Leaf1, B0bb, CFG),
-    {_, Root2, _} = store:store(Leaf2, Root1, CFG),
+    [{_, Root2, _}] = store:store(tuples_from(Leaf2), Root1, CFG),
     {Hash0, Leaf2, B0} = get:get(leaf:path(Leaf2, CFG), Root2, CFG),
     true = verify:proof(Hash0, Leaf2, B0, CFG);
     
@@ -277,4 +277,7 @@ test3b(N, Loc, CFG) ->  %check that everything is in the trie
     {Hash, Value, Proof} = trie:get(N, Loc, ?ID),
     true = verify:proof(Hash, Value, Proof, CFG), 
     test3b(N-1, Loc, CFG).
+
+tuples_from(Leaf) ->
+    [{leaf:key(Leaf), leaf:value(Leaf), leaf:meta(Leaf)}].
 

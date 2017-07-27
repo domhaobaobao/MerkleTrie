@@ -39,23 +39,29 @@ proof2branch([Hashes | MoreProof], Type, Pointer, Hash, [<<Nibble:4>> | MorePath
 		   {RootHash, RootPointer, get:proof()}
 		       when RootHash :: stem:hash(),
 			    RootPointer :: stem:stem_p().
-store(Leaf, Root, CFG) ->
-    %we could make it faster if the input was like [{Key1, Value1}, {Key2, Value2}...]
-    LPointer = store:put_leaf(Leaf, CFG),
-    LH = leaf:hash(Leaf, CFG),
-    P = leaf:path(Leaf, CFG),
-    B = case get_branch(P, 0, Root, [], CFG) of
-	{Leaf2, LP2, Branch} ->%split leaf, add stem(s)
-	    %need to add 1 or more stems.
-            {A, N2} = path_match(P, leaf:path(Leaf2, CFG), 0),
-            LH2 = leaf:hash(Leaf2, CFG),
-            Stem = stem:new(N2, 2, LP2, LH2, CFG),
-            EmptyStems = [stem:empty(CFG) || _ <- lists:seq(1,A-length(Branch))],
-            [Stem | EmptyStems] ++ Branch;
-        Branch -> %overwrite
-            Branch
-    end,
-    put_branch(B, P, 2, LPointer, LH, CFG).
+store(KVMs, Root, CFG) ->
+    [ %verify if this is better implemented as a fold, i.e. there is an inherent dependency on list items
+        begin
+            Leaf = leaf:new(Key, Value, Meta, CFG),
+            LPointer = store:put_leaf(Leaf, CFG),
+            LH = leaf:hash(Leaf, CFG),
+            P = leaf:path(Leaf, CFG),
+            B = case get_branch(P, 0, Root, [], CFG) of
+                    {Leaf2, LP2, Branch} ->%split leaf, add stem(s)
+                        %need to add 1 or more stems.
+                        {A, N2} = path_match(P, leaf:path(Leaf2, CFG), 0),
+                        LH2 = leaf:hash(Leaf2, CFG),
+                        Stem = stem:new(N2, 2, LP2, LH2, CFG),
+                        EmptyStems = [stem:empty(CFG) || _ <- lists:seq(1,A-length(Branch))],
+                        [Stem | EmptyStems] ++ Branch;
+                    Branch -> %overwrite
+                        Branch
+                end,
+            put_branch(B, P, 2, LPointer, LH, CFG)
+        end
+        || {Key, Value, Meta} <- KVMs
+    ].
+
 -type path_nibble_index() :: path_nibble_index(cfg:path()).
 -type path_nibble_index(_CfgPathSizeBytes) :: non_neg_integer(). % 0..((cfg:path() * 2) - 1)
 -spec get_branch(Path::leaf:path(), StartInPath::path_nibble_index(),
