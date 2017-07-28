@@ -35,7 +35,6 @@
 -opaque stem_p() :: non_neg_integer().
 -type nibble() :: 0..15.
 -type non_empty_binary() :: <<_:8, _:_*8>>.
-empty_tuple() -> {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}.
 -spec add(stem(), nibble(), leaf_t(), leaf:leaf_p(), hash()) -> stem();
 	 (stem(), nibble(), stem_t(), stem_p(), hash()) -> stem();
 	 (stem(), nibble(), empty_t(), empty_p(), empty_hash()) -> stem().
@@ -77,15 +76,14 @@ serialize(S, CFG) ->
     P = S#stem.pointers,
     H = S#stem.hashes,
     T = S#stem.types,
-    X = serialize(P, H, T, Path, 1),
-    X.
-serialize(_, _, _, _, N) when N>16 -> <<>>;
-serialize(P, H, T, Path, N) -> 
+    list_to_bitstring(serialize(P, H, T, Path, 1)).
+serialize(_, _, _, _, N) when N>16 -> [];
+serialize(P, H, T, Path, N) ->
     P1 = element(N, P),
     H1 = element(N, H),
     T1 = element(N, T),
-    D = serialize(P, H, T, Path, N+1),
-    << T1:2, P1:Path, H1/binary, D/bitstring >>.
+
+    [<<T1:2, P1:Path>>, H1 | serialize(P, H, T, Path, N+1)].
 deserialize(B, CFG) -> 
     X = empty_tuple(),
     %deserialize(1,X,X,cfg:path(CFG)*8,hash:hash_depth()*8,X, B).
@@ -99,14 +97,11 @@ deserialize(N, T0,P0,Path,HashDepth,H0,X) when N < 17 ->
     P1 = setelement(N, P0, P),
     H1 = setelement(N, H0, <<H:HashDepth>>),
     deserialize(N+1, T1, P1, Path, HashDepth,H1, D).
+
+empty_tuple() -> list_to_tuple([0 || _ <-lists:seq(1, 16)]).
 empty_hashes(CFG) ->
-    HS = cfg:hash_size(CFG),
-    %X = hash:hash_depth()*8,
-    X = HS * 8,
-    {<<0:X>>,<<0:X>>,<<0:X>>,<<0:X>>,
-     <<0:X>>,<<0:X>>,<<0:X>>,<<0:X>>,
-     <<0:X>>,<<0:X>>,<<0:X>>,<<0:X>>,
-     <<0:X>>,<<0:X>>,<<0:X>>,<<0:X>>}.
+    X = cfg:hash_size(CFG) * 8,
+    list_to_tuple([ <<0:X>> || _ <-lists:seq(1, 16)]).
 
 -spec hash(Hashes, cfg:cfg()) -> hash() when
       Hashes :: SerializedStem | hashes() | stem(),
