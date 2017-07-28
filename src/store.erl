@@ -1,5 +1,5 @@
 -module(store).
--export([store/3, store/5, delete/3, put_branch/6, get_leaf/2, put_leaf/2, get_stem/2, put_stem/2]).
+-export([store/3, store/5, delete/3, get_leaf/2, put_leaf/2, get_stem/2, put_stem/2]).
 -export_type([branch/0, nonempty_branch/0]).
 
 -type branch() :: [stem:stem()]. % first element is most distant from root i.e. closest to leaf (if any)
@@ -129,7 +129,7 @@ delete(ID, Root, CFG) ->
     X = cfg:hash_size(CFG)*8,
     %X = hash:hash_depth()*8,
     EmptyHash = <<0:X>>,
-    {_, NewRoot, _} = store:put_branch(Branch, Path, 0, 0, EmptyHash, CFG),
+    {_, NewRoot, _} = put_branch(Branch, Path, 0, 0, EmptyHash, CFG),
     NewRoot.
 
 
