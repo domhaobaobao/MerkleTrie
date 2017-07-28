@@ -1,9 +1,11 @@
 -module(store).
--export([store/3, store/5, get_branch/5, put_branch/6, get_leaf/2, put_leaf/2, get_stem/2, put_stem/2]).
+-export([store/3, store/5, delete/3, put_branch/6, get_leaf/2, put_leaf/2, get_stem/2, put_stem/2]).
 -export_type([branch/0, nonempty_branch/0]).
 
 -type branch() :: [stem:stem()]. % first element is most distant from root i.e. closest to leaf (if any)
 -type nonempty_branch() :: [stem:stem(), ...].
+
+-include("types.hrl").
 
 store(Leaf, Hash, Proof, Root, CFG) -> %this restores information to the merkle trie that had been garbage collected.
 
@@ -14,7 +16,7 @@ store(Leaf, Hash, Proof, Root, CFG) -> %this restores information to the merkle 
     LH = leaf:hash(Leaf, CFG),
     Path = leaf:path(Leaf, CFG),
     Branch = proof2branch(Proof, 2, LPointer, LH, Path, CFG),
-    Branch2 = get_branch(Path, 0, Root, [], CFG),
+    Branch2 = get_branch(Path, Path, Root, [], CFG),
     Branch3 = combine_branches(Path, Branch, Branch2),
     put_branch(Branch3, Path, 2, LPointer, LH, CFG).
 
@@ -46,7 +48,7 @@ store(KVMs, Root, CFG) ->
             LPointer = store:put_leaf(Leaf, CFG),
             LH = leaf:hash(Leaf, CFG),
             P = leaf:path(Leaf, CFG),
-            B = case get_branch(P, 0, Root, [], CFG) of
+            B = case get_branch(P, P, Root, [], CFG) of
                     {Leaf2, LP2, Branch} ->%split leaf, add stem(s)
                         %need to add 1 or more stems.
                         {A, N2} = path_match(P, leaf:path(Leaf2, CFG), 0),
@@ -69,27 +71,26 @@ store(KVMs, Root, CFG) ->
 			{leaf:leaf(), leaf:leaf_p(), % leaf (and corresponding pointer) at returned branch and containing path different from the specified one
 			 Branch::nonempty_branch()} |
 			nonempty_branch(). % branch either (1) without leaf or (2) with leaf containing specified path
-get_branch(Path, N, Parent, Trail, CFG) ->
-    %gather the branch as it currently looks.
-    M = N+1,
-    <<A:4>> = lists:nth(M, Path), % TODO this could be turned into hd (head)
-    R = store:get_stem(Parent, CFG),
-    Pointer = stem:pointer(A+1, R),
-    RP = [R|Trail],
-    case stem:type(A+1, R) of
-	0 ->%empty
-	    RP;
-	1 ->%another stem
-	    get_branch(Path, M, Pointer, RP, CFG);
-	2 ->%a leaf. 
-	    Leaf = store:get_leaf(Pointer, CFG),
-	    case leaf:path(Leaf, CFG) of
-		Path -> %overwrite
-		    RP;
-		_ -> %split leaf, add stem(s)
-		    {Leaf, Pointer, RP}
-	    end
+
+get_branch(Path, [<<N:4>>| MorePath], Pointer, Acc, CFG) ->
+    Ix = N+1,
+    R = store:get_stem(Pointer, CFG),
+    SubPointer = stem:pointer(Ix, R),
+    case stem:type(Ix, R) of
+        ?EMPTY ->
+            [R |Acc];
+        ?STEM ->
+            get_branch(Path, MorePath, SubPointer, [R | Acc], CFG);
+        ?LEAF ->
+            Leaf = store:get_leaf(SubPointer, CFG),
+            case leaf:path(Leaf, CFG) of
+                Path -> %overwrite
+                    [R | Acc];
+                _ -> %split leaf, add stem(s)
+                    {Leaf, SubPointer, [R | Acc]}
+            end
     end.
+
 -spec put_branch(nonempty_branch(), leaf:path(),
 		   stem:leaf_t(), leaf:leaf_p(), stem:hash(),
 		   cfg:cfg()) -> Result when
@@ -98,18 +99,14 @@ get_branch(Path, N, Parent, Trail, CFG) ->
 		   stem:empty_t(), stem:empty_p(), stem:hash(),
 		   cfg:cfg()) -> Result when
       Result :: {RootHash::stem:hash(), Root::stem:stem_p(), get:proof()}.
-put_branch(Branch = [_|_], Path, Type, Pointer, Hash, CFG) when Type =:= 0;
-								  Type =:= 2 ->
+put_branch(Branch = [_|_], Path, Type, Pointer, Hash, CFG) when Type =:= ?EMPTY;
+								  Type =:= ?LEAF ->
     put_branch_internal(Branch, Path, Type, Pointer, Hash, CFG).
 put_branch_internal([], Path, _, Pointer, _, CFG) ->
     %Instead of getting the thing, we can build it up while doing store.
     {Hash, _, Proof} = get:get(Path, Pointer, CFG),
     {Hash, Pointer, Proof};
 
-    %case get:get(Path, Pointer, CFG) of
-	%{Hash, _, Proof} -> {Hash, Pointer, Proof};
-	%empty -> put_branch_internal([], Path, 0, Pointer, 0, CFG)
-    %end;
 put_branch_internal([B|Branch], Path, Type, Pointer, Hash, CFG) ->
     S = length(Branch),
     <<A:4>> = lists:nth(S+1,Path),  %% TODO maybe this can be turned into hd (head)
@@ -117,14 +114,24 @@ put_branch_internal([B|Branch], Path, Type, Pointer, Hash, CFG) ->
     Loc = store:put_stem(S1, CFG),
     SH = stem:hash(S1, CFG),
     put_branch_internal(Branch, Path, 1, Loc, SH, CFG).
-%add(L) -> add(L, 0).
-%add([], X) -> X;
-%add([H|T], X) -> add(T, H+X).
+
 path_match([<<A:4>> | P1], [<<B:4>> | P2], N) -> %returns {convergence_length, next nibble}
     if
 	A == B -> path_match(P1, P2, N+1);
 	true -> {N, B}
     end.
+
+-spec delete(leaf:key(), stem:stem_p(), cfg:cfg()) -> stem:stem_p().
+delete(ID, Root, CFG) ->
+    Path = leaf:path_maker(ID, CFG),
+    Branch = get_branch(Path, Path, Root, [], CFG),
+    %{_, Leaf, Proof} = get:get(Path, Root, CFG),
+    X = cfg:hash_size(CFG)*8,
+    %X = hash:hash_depth()*8,
+    EmptyHash = <<0:X>>,
+    {_, NewRoot, _} = store:put_branch(Branch, Path, 0, 0, EmptyHash, CFG),
+    NewRoot.
+
 
 -spec put_leaf(leaf:leaf(), cfg:cfg()) -> leaf:leaf_p().
 put_leaf(Leaf, CFG) ->

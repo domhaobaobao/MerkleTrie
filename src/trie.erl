@@ -32,7 +32,7 @@ handle_cast(_, X) ->
     {noreply, X}.
 
 handle_call({delete, Key, Root}, _From, State = #state{cfg = CFG}) ->
-    NewRoot = delete:delete(Key, Root, CFG),
+    NewRoot = store:delete(Key, Root, CFG),
     {reply, NewRoot, State};
 handle_call({put, KVMs, Root}, _From, State = #state{cfg = CFG}) ->
     NewRoots =[
